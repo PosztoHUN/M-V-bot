@@ -89,6 +89,9 @@ COMMON_HEADERS = {
     "Accept": "application/json, text/plain, /",
 }
 
+import aiohttp
+import asyncio
+
 async def fetch_mav_vehicles():
     payload = {
         "query": GRAPHQL_QUERY,
@@ -108,17 +111,44 @@ async def fetch_mav_vehicles():
         "Referer": MAV_BASE + "/"
     }
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=20)
+
+    for attempt in range(3):  # retry 3x
         try:
-            async with session.post(GRAPHQL_URL, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as r:
-                if r.status != 200:
-                    return []
-                resp_json = await r.json()
-                vehicles = resp_json.get("data", {}).get("vehiclePositions", [])
-                return vehicles
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(GRAPHQL_URL, json=payload, headers=headers) as r:
+
+                    print("STATUS:", r.status)
+
+                    if r.status != 200:
+                        print("Nem 200 válasz")
+                        await asyncio.sleep(1)
+                        continue
+
+                    try:
+                        resp_json = await r.json()
+                    except Exception:
+                        text = await r.text()
+                        print("Nem JSON válasz:", text[:200])
+                        return []
+
+                    vehicles = resp_json.get("data", {}).get("vehiclePositions", [])
+
+                    print(f"Lekért járművek: {len(vehicles)}")
+
+                    return vehicles if vehicles else []
+
+        except asyncio.TimeoutError:
+            print(f"Timeout ({attempt+1}/3)")
+        except aiohttp.ClientError as e:
+            print(f"HTTP hiba ({attempt+1}/3):", e)
         except Exception as e:
-            print("Fetch hiba:", e)
-            return []
+            print(f"Egyéb hiba ({attempt+1}/3):", e)
+
+        await asyncio.sleep(2)
+
+    print("Fetch végleg elhasalt")
+    return []
 
 LOCK_FILE = "/tmp/discord_bot.lock"
 DISCORD_LIMIT = 1900
@@ -349,6 +379,7 @@ async def logger_loop_mav():
 
 @bot.command()
 async def vezerlokocsik(ctx):
+    """Kiírja az összes Vezérlőkocsit (8005)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -421,6 +452,7 @@ async def vezerlokocsik(ctx):
 
 @bot.command()
 async def bz(ctx):
+    """Kiírja az összes BZmotot (117, 127, 136)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -493,6 +525,7 @@ async def bz(ctx):
         
 @bot.command()
 async def vectron(ctx):
+    """Kiírja az összes Vectront (193, 471)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -565,6 +598,7 @@ async def vectron(ctx):
 
 @bot.command()
 async def uzsgyi(ctx):
+    """Kiírja az összes Uzsgyit (416)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -637,6 +671,7 @@ async def uzsgyi(ctx):
         
 @bot.command()
 async def bdv(ctx):
+    """Kiírja az összes BDVmotot (414)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -709,6 +744,7 @@ async def bdv(ctx):
         
 @bot.command()
 async def flirt(ctx):
+    """Kiírja az összes Flirt-öt (415)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -781,6 +817,7 @@ async def flirt(ctx):
         
 @bot.command()
 async def m40(ctx):
+    """Kiírja az összes M40-et (408)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -853,6 +890,7 @@ async def m40(ctx):
         
 @bot.command()
 async def m41(ctx):
+    """Kiírja az összes M41-et (418)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -925,6 +963,7 @@ async def m41(ctx):
         
 @bot.command()
 async def bvh(ctx):
+    """Kiírja az összes BVhmotot (424)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -997,6 +1036,7 @@ async def bvh(ctx):
         
 @bot.command()
 async def v43(ctx):
+    """Kiírja az összes V43-at (430, 431, 432, 433)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1069,6 +1109,7 @@ async def v43(ctx):
         
 @bot.command()
 async def talent(ctx):
+    """Kiírja az összes Talentet (425)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1141,6 +1182,7 @@ async def talent(ctx):
         
 @bot.command()
 async def desiro(ctx):
+    """Kiírja az összes Desirot (426)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1213,6 +1255,7 @@ async def desiro(ctx):
         
 @bot.command()
 async def bv(ctx):
+    """Kiírja az összes BVmotot (434)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1285,6 +1328,7 @@ async def bv(ctx):
         
 @bot.command()
 async def m43(ctx):
+    """Kiírja az összes M43-at (438, 439)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1357,6 +1401,7 @@ async def m43(ctx):
         
 @bot.command()
 async def m44(ctx):
+    """Kiírja az összes M44-et (448)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1429,6 +1474,7 @@ async def m44(ctx):
         
 @bot.command()
 async def jenbacher(ctx):
+    """Kiírja az összes Jenbacher-t (247, 446, 5147)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1501,6 +1547,7 @@ async def jenbacher(ctx):
         
 @bot.command()
 async def v46(ctx):
+    """Kiírja az összes V46-t (460)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1573,6 +1620,7 @@ async def v46(ctx):
         
 @bot.command()
 async def taurus(ctx):
+    """Kiírja az összes Taurust (182, 470, 1116)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés uicCode alapján
@@ -1649,6 +1697,7 @@ async def taurus(ctx):
         
 @bot.command()
 async def ventus(ctx):
+    """Kiírja az összes Ventust (4744)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1721,6 +1770,7 @@ async def ventus(ctx):
         
 @bot.command()
 async def m47(ctx):
+    """Kiírja az összes M47-t (478)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1793,6 +1843,7 @@ async def m47(ctx):
         
 @bot.command()
 async def traxx(ctx):
+    """Kiírja az összes Traxxot (480)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1865,6 +1916,7 @@ async def traxx(ctx):
         
 @bot.command()
 async def astride(ctx):
+    """Kiírja az összes Astride-ot (490)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -1936,7 +1988,8 @@ async def astride(ctx):
         await ctx.send(embed=e)
         
 @bot.command()
-async def m62(ctx):
+async def m62(ctx):    
+    """Kiírja az összes M62-t (628)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -2008,7 +2061,8 @@ async def m62(ctx):
         await ctx.send(embed=e)
         
 @bot.command()
-async def v63(ctx):
+async def v63(ctx):    
+    """Kiírja az összes V63-t (630)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -2081,6 +2135,7 @@ async def v63(ctx):
 
 @bot.command()
 async def kiss(ctx):
+    """Kiírja az összes KISS-t (815)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -2157,7 +2212,7 @@ async def kiss(ctx):
 
 @bot.command()
 async def ikarus(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Ikarus járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Ikarust"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Ikarus járművek
@@ -2236,7 +2291,7 @@ async def ikarus(ctx):
         
 @bot.command()
 async def credo(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Credo járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Credot"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Credo járművek
@@ -2315,7 +2370,7 @@ async def credo(ctx):
         
 @bot.command()
 async def man(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s MAN járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes MAN-t"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak MAN járművek
@@ -2394,7 +2449,7 @@ async def man(ctx):
         
 @bot.command()
 async def volvo(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Volvo járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Volvot"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Volvo járművek
@@ -2473,7 +2528,7 @@ async def volvo(ctx):
         
 @bot.command()
 async def mercedes(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Mercedes járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Mercedest"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Mercedes járművek
@@ -2552,7 +2607,7 @@ async def mercedes(ctx):
         
 @bot.command()
 async def setra(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Setra járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Setrat"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Setra járművek
@@ -2631,7 +2686,7 @@ async def setra(ctx):
         
 @bot.command()
 async def nabi(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s NABI járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes NABI-t"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak NABI járművek
@@ -2710,7 +2765,7 @@ async def nabi(ctx):
         
 @bot.command()
 async def alfabusz(ctx):
-    """Kiírja az összes nem budapesti, nem BKK-s Alfabusz járművet ABC sorrendben típusa és rendszáma szerint."""
+    """Kiírja az összes Alfabuszt"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés: csak Alfabusz járművek
