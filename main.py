@@ -2045,7 +2045,7 @@ async def m62(ctx):
             if "628 187" in payaszam:
                 payaszam = "M62 187"
             if "628 194" in payaszam:
-                payaszam = "M62 194"
+                payaszam = "M62-194"
             if "628 265" in payaszam:
                 payaszam = "M62 265"
         else:
