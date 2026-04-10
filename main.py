@@ -917,7 +917,7 @@ async def m41(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if payaszam == "418 103-1":
+            if payaszam == "418 103":
                 payaszam = "M41.2103"
         else:
             payaszam = uic
