@@ -406,6 +406,8 @@ async def vezerlokocsik(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[4:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if "8005 149" in payaszam:
+                payaszam = "BDdf 149"
         else:
             payaszam = uic
 
