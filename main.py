@@ -379,7 +379,7 @@ async def logger_loop_mav():
 
 @bot.command()
 async def vezerlokocsik(ctx):
-    """Kiírja az összes Vezérlőkocsit (8005)"""
+    """Kiírja az összes Vezérlőkocsit (8005, 8055)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
     # Szűrés csak uicCode 6-8 karakter "815"
@@ -388,7 +388,7 @@ async def vezerlokocsik(ctx):
         for vid, data in all_vehicles.items()
         if data.get("uicCode") is not None
         and len(data["uicCode"]) >= 8
-        and data["uicCode"][4:8] == "8005"
+        and (data["uicCode"][4:8] == "8005" or data["uicCode"][4:8] == "8055")
     ]
 
     if not kiss_vehicles:
@@ -917,6 +917,8 @@ async def m41(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if payaszam == "418 103-1":
+                payaszam = "M41.2103"
         else:
             payaszam = uic
 
@@ -2089,6 +2091,10 @@ async def v63(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if payaszam == "630 004":
+                payaszam = "V63 004"
+            if payaszam == "630 056":
+                payaszam = "V63 056"
         else:
             payaszam = uic
 
