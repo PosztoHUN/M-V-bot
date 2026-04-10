@@ -917,8 +917,12 @@ async def m41(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if payaszam == "418 103":
+            if "418 103" in payaszam:
                 payaszam = "M41.2103"
+            if "418 112" in payaszam:
+                payaszam = "M41.2112"
+            if "418 143" in payaszam:
+                payaszam = "M41.2143"
         else:
             payaszam = uic
 
@@ -1065,6 +1069,10 @@ async def v43(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if "431 001" in payaszam:
+                payaszam = "V43.1001"
+            if "431 008" in payaszam:
+                payaszam = "V43.1008"
         else:
             payaszam = uic
 
@@ -1381,7 +1389,7 @@ async def m43(ctx):
 
         if len(description) + len(entry) > MAX_CHARS:
             embed = discord.Embed(
-                title="🚆 Aktív V63 mozdonyok",
+                title="🚆 Aktív M43 mozdonyok",
                 description=description,
                 color=0x00A0E3
             )
@@ -1392,7 +1400,7 @@ async def m43(ctx):
 
     if description:
         embed = discord.Embed(
-            title="🚆 Aktív V63 mozdonyok",
+            title="🚆 Aktív M43 mozdonyok",
             description=description,
             color=0x00A0E3
         )
@@ -2091,9 +2099,9 @@ async def v63(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if payaszam == "630 004":
+            if "630 004" in payaszam:
                 payaszam = "V63 004"
-            if payaszam == "630 056":
+            if "630 056" in payaszam:
                 payaszam = "V63 056"
         else:
             payaszam = uic
