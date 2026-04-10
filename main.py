@@ -844,6 +844,16 @@ async def m40(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if "408 113" in payaszam:
+                payaszam = "M40.113"
+            if "408 114" in payaszam:
+                payaszam = "M40.114"
+            if "408 203" in payaszam:
+                payaszam = "M40 203"
+            if "408 204" in payaszam:
+                payaszam = "M40 209"
+            if "408 219" in payaszam:
+                payaszam = "M40.219"
         else:
             payaszam = uic
 
@@ -2026,6 +2036,18 @@ async def m62(ctx):
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
             payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            if "628 001" in payaszam:
+                payaszam = "M62-001"
+            if "628 116" in payaszam:
+                payaszam = "M62 116"
+            if "628 127" in payaszam:
+                payaszam = "M62-127"
+            if "628 187" in payaszam:
+                payaszam = "M62 187"
+            if "628 194" in payaszam:
+                payaszam = "M62 194"
+            if "628 265" in payaszam:
+                payaszam = "M62 265"
         else:
             payaszam = uic
 
