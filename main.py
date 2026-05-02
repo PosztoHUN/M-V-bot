@@ -28,6 +28,15 @@ GRAPHQL_URL = f"{MAV_BASE}/otp2-backend/otp/routers/default/index/graphql"
 REQ_TIMEOUT = aiohttp.ClientTimeout(total=25)
 ACTIVE_STATUSES = {"IN_TRANSIT_TO", "STOPPED_AT", "IN_PROGRESS"}
 
+SUPABASE_URL = "https://kqarpawtigpiktbzdgzq.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxYXJwYXd0aWdwaWt0YnpkZ3pxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMjg4NTIsImV4cCI6MjA5MDcwNDg1Mn0.B_FRJxRgV8g3G6r5vsmVKV7PV17-ZGdXIXZFKW1PyWU"
+SUPABASE_TABLE = "mav_nosztalgia"
+SUPABASE_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Accept": "application/json",
+}
+
 GRAPHQL_QUERY = """
 query VehiclePositions($swLat: Float!, $swLon: Float!, $neLat: Float!, $neLon: Float!) {
   vehiclePositions(swLat: $swLat, swLon: $swLon, neLat: $neLat, neLon: $neLon) {
@@ -2961,6 +2970,87 @@ async def alfabusz(ctx):
 #     last = lines[-1]
 #     await ctx.send(f"🚊 **{vehicle} utolsó menete**\n```{last}```")
         
+async def fetch_nosztalgia_timetable():
+    url = f"{SUPABASE_URL}/rest/v1/{SUPABASE_TABLE}"
+    params = {"select": "*", "order": "idopont.asc"}
+    async with aiohttp.ClientSession(headers=SUPABASE_HEADERS, timeout=REQ_TIMEOUT) as session:
+        async with session.get(url, params=params) as resp:
+            if resp.status != 200:
+                text = await resp.text()
+                raise RuntimeError(f"Supabase API hiba: {resp.status} {text[:200]}")
+            return await resp.json()
+
+@bot.command()
+async def nosztalgia(ctx):
+    """Kiírja a mai nosztalgia menetrendet embedben a Supabase adatbázisból."""
+    try:
+        rows = await fetch_nosztalgia_timetable()
+    except Exception as e:
+        await ctx.send(f"Hiba a menetrend lekérésekor: {e}")
+        return
+
+    now = datetime.now().time()
+    today = datetime.now().date()
+
+    todays_rows = []
+    for row in rows:
+        datum = row.get("datum")
+        idopont = row.get("idopont")
+        if not datum or not idopont:
+            continue
+        try:
+            row_date = datetime.fromisoformat(datum).date()
+        except Exception:
+            continue
+        if row_date != today:
+            continue
+        try:
+            idopont_time = datetime.strptime(idopont, "%H:%M:%S").time()
+        except Exception:
+            continue
+        todays_rows.append({
+            "mozdony": row.get("mozdony", "Ismeretlen"),
+            "megallo": row.get("megallo", "Ismeretlen"),
+            "vonatszam": row.get("vonatszam", "Ismeretlen"),
+            "idopont": idopont,
+            "idopont_time": idopont_time,
+        })
+
+    if not todays_rows:
+        await ctx.send("Ma nincs elérhető nosztalgia menetrend az adatbázisban.")
+        return
+
+    by_mozdony = defaultdict(list)
+    for item in todays_rows:
+        by_mozdony[item["mozdony"]].append(item)
+
+    fields = []
+    for mozdony, items in sorted(by_mozdony.items()):
+        upcoming = [item for item in items if item["idopont_time"] >= now]
+        if not upcoming:
+            continue
+        next_item = min(upcoming, key=lambda x: x["idopont_time"])
+        fields.append((mozdony, next_item))
+
+    if not fields:
+        await ctx.send("Ma már nincs több olyan menetrend, amely a helyi idő szerint későbbi indulást tartalmaz.")
+        return
+
+    embed = discord.Embed(
+        title="🚆 Nosztalgia menetrend",
+        description=f"Mai dátum: {today.isoformat()}",
+        color=0x00A0E3
+    )
+
+    for mozdony, item in fields:
+        embed.add_field(
+            name=f"{mozdony} — {item['vonatszam']}",
+            value=f"Állomás: {item['megallo']}\nKövetkező időpont: {item['idopont']}",
+            inline=False
+        )
+
+    await ctx.send(embed=embed)
+
 @bot.command()
 async def vonat(ctx, vonatszam_keres: str):
     """Megkeresi a megadott vonatszámú járművet és kiírja az adatait."""
