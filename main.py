@@ -3044,8 +3044,8 @@ async def nosztalgia(ctx):
 
     for mozdony, item in fields:
         embed.add_field(
-            name=f"{mozdony} \n {item['vonatszam']}",
-            value=f"Következő llomás: {item['megallo']}\nTervezett érkezés: {item['idopont']} \n **Ez a tervezett menetrend, nem feltétlenül a valós érkezési idő.**",
+            name=f"{mozdony}",
+            value=f"Vonatszám: {item['vonatszam']}\nKövetkező llomás: {item['megallo']}\nTervezett érkezés: {item['idopont']} \n **Ez a tervezett menetrend, nem feltétlenül a valós érkezési idő.**",
             inline=False
         )
 
