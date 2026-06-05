@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 from collections import defaultdict
 from supabase import create_client
 from google.transit import gtfs_realtime_pb2
+from PIL import Image, ImageDraw, ImageFont
 
 # =======================
 # BEÁLLÍTÁSOK
@@ -309,6 +310,83 @@ def get_retro_image_path(payaszam: str) -> str:
             return os.path.join("img", general_image)
     
     return None
+
+
+def _load_font(size: int):
+    try:
+        return ImageFont.truetype("arial.ttf", size)
+    except Exception:
+        try:
+            return ImageFont.truetype("DejaVuSans.ttf", size)
+        except Exception:
+            return ImageFont.load_default()
+
+
+def generate_m41_status_image(entries, title="Aktív M41 mozdonyok"):
+    icon_path = os.path.join("img", "418-a.png")
+    icon = None
+    if os.path.exists(icon_path):
+        try:
+            with Image.open(icon_path).convert("RGBA") as icon_src:
+                icon = icon_src.copy()
+        except Exception:
+            icon = None
+
+    title_font = _load_font(28)
+    header_font = _load_font(22)
+    text_font = _load_font(18)
+
+    padding = 20
+    icon_size = 50
+    text_spacing = 6
+    title_height = title_font.getbbox("Mg")[3] - title_font.getbbox("Mg")[1]
+    line_height = text_font.getbbox("Hg")[3] - text_font.getbbox("Hg")[1] + text_spacing
+    entry_height = max(icon_size, line_height * 5 + padding) + padding
+    width = 1180
+    height = padding + title_height + padding + len(entries) * entry_height + padding
+
+    image = Image.new("RGB", (width, height), (18, 30, 45))
+    draw = ImageDraw.Draw(image)
+
+    draw.text((padding, padding), title, font=title_font, fill=(255, 255, 255))
+    y = padding + title_height + padding
+
+    for entry in entries:
+        payaszam = entry["payaszam"]
+        uic = entry["uic"]
+        vonatszam = entry["vonatszam"]
+        cel = entry["cel"]
+        next_stop = entry["next_stop"]
+        speed = entry["speed"]
+        delay_min = entry["delay_min"]
+
+        box_x0 = padding
+        box_x1 = width - padding
+        box_y0 = y
+        box_y1 = y + entry_height - padding
+        draw.rectangle([box_x0, box_y0, box_x1, box_y1], fill=(28, 40, 60))
+
+        text_x = box_x0 + padding
+        if icon is not None and entry.get("show_icon", False):
+            icon_resized = icon.resize((icon_size, icon_size), Image.LANCZOS)
+            image.paste(icon_resized, (text_x, box_y0 + 6), icon_resized)
+            text_x += icon_size + padding
+
+        draw.text((text_x, box_y0 + 4), payaszam, font=header_font, fill=(255, 255, 255))
+        text_y = box_y0 + 4 + header_font.getbbox(payaszam)[3] - header_font.getbbox(payaszam)[1] + padding // 2
+
+        draw.text((text_x, text_y), f"UIC: {uic}", font=text_font, fill=(220, 220, 220))
+        draw.text((text_x, text_y + line_height), f"Vonatszám: {vonatszam}", font=text_font, fill=(220, 220, 220))
+        draw.text((text_x, text_y + line_height * 2), f"Célállomás: {cel}", font=text_font, fill=(220, 220, 220))
+        draw.text((text_x, text_y + line_height * 3), f"Következő állomás: {next_stop}", font=text_font, fill=(220, 220, 220))
+        draw.text((text_x, text_y + line_height * 4), f"Sebesség: {speed} km/h   Késés: {delay_min}", font=text_font, fill=(220, 220, 220))
+
+        y += entry_height
+
+    output = io.BytesIO()
+    image.save(output, format="PNG")
+    output.seek(0)
+    return output
 
 
 # =======================
@@ -1014,14 +1092,8 @@ async def m41(ctx):
     # Rendezés pályaszám szerint (uicCode 6-11 karakter)
     kiss_vehicles.sort(key=lambda v: v["uicCode"][5:11] if len(v["uicCode"]) >= 11 else "000000")
 
-    MAX_FIELDS = 25
-    embeds = []
-    current_embed = discord.Embed(
-        title="🚆 Aktív M41 mozdonyok",
-        color=0x00A0E3
-    )
-    field_count = 0
-
+    # Create a single rendered image with inline icons next to each number.
+    entries = []
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
@@ -1032,47 +1104,25 @@ async def m41(ctx):
         trip_short = v.get("tripShortName", "")
         vonatszam = "".join([c for c in trip_short if c.isdigit()]) or "Ismeretlen"
         cel = v.get("tripHeadsign") or "Ismeretlen"
-
         next_stop = v.get("nextStop", {}).get("stop", {}).get("name", "Ismeretlen")
         speed = v.get("speed", 0.0)
         delay_sec = v.get("nextStop", {}).get("arrivalDelay")
         delay_min = f"{int(delay_sec / 60)} perc" if delay_sec is not None else "—"
 
-        # Field name with image emoji indicator
-        field_name = f"🚆 {payaszam}"
-        field_value = (
-            f"UIC: {uic}\n"
-            f"Vonatszám: {vonatszam}\n"
-            f"Célállomás: {cel}\n"
-            f"Következő állomás: {next_stop}\n"
-            f"Sebesség: {speed} km/h\n"
-            f"Késés: {delay_min}"
-        )
+        entries.append({
+            "payaszam": payaszam,
+            "uic": uic,
+            "vonatszam": vonatszam,
+            "cel": cel,
+            "next_stop": next_stop,
+            "speed": speed,
+            "delay_min": delay_min,
+            "show_icon": uic[5:8] == "418"
+        })
 
-        if field_count >= MAX_FIELDS:
-            embeds.append(current_embed)
-            current_embed = discord.Embed(
-                title="🚆 Aktív M41 mozdonyok (folytatás)",
-                color=0x00A0E3
-            )
-            field_count = 0
-
-        current_embed.add_field(name=field_name, value=field_value, inline=False)
-        field_count += 1
-
-    if field_count > 0:
-        embeds.append(current_embed)
-
-    # Send embeds with image
-    image_path = "img/418-a.png"
-    for idx, e in enumerate(embeds):
-        if os.path.exists(image_path) and idx == 0:
-            # Only attach image to first embed
-            image_file = discord.File(image_path, filename="418-a.png")
-            e.set_thumbnail(url="attachment://418-a.png")
-            await ctx.send(embed=e, file=image_file)
-        else:
-            await ctx.send(embed=e)
+    image_bytes = generate_m41_status_image(entries)
+    image_file = discord.File(image_bytes, filename="m41_status.png")
+    await ctx.send(f"🚆 Aktív M41 mozdonyok ({len(entries)} jármű)", file=image_file)
         
 @bot.command()
 async def bvh(ctx):
@@ -3136,6 +3186,7 @@ async def vonat(ctx, vonatszam_keres: str):
     MAX_CHARS = 4000
     description = ""
     embeds = []
+    entries = []
 
     for v in matches:
         uic = str(v.get("uicCode") or "Ismeretlen")
@@ -3150,6 +3201,16 @@ async def vonat(ctx, vonatszam_keres: str):
         speed = round(v.get("speed") or 0.0, 1)
         delay_sec = v.get("nextStop", {}).get("arrivalDelay")
         delay_min = f"{int(delay_sec / 60)} perc" if delay_sec is not None else "—"
+
+        entries.append({
+            "payaszam": payaszam,
+            "uic": uic,
+            "cel": cel,
+            "next_stop": next_stop,
+            "speed": speed,
+            "delay_min": delay_min,
+            "show_icon": uic[5:8] == "418"
+        })
 
         entry = (
             f"**{payaszam}**\n"
@@ -3180,18 +3241,14 @@ async def vonat(ctx, vonatszam_keres: str):
         )
         embeds.append(embed)
 
+    if any(entry["show_icon"] for entry in entries):
+        image_bytes = generate_m41_status_image(entries, title=f"🚆 Vonat {vonatszam_keres} adatai")
+        image_file = discord.File(image_bytes, filename=f"vonat_{vonatszam_keres}.png")
+        await ctx.send(file=image_file)
+        return
+
     for e in embeds:
-        # Check if this embed contains 418 vehicles
-        if "418" in e.description or "M41" in e.description:
-            image_path = "img/418-a.png"
-            if os.path.exists(image_path):
-                image_file = discord.File(image_path, filename="418-a.png")
-                e.set_thumbnail(url="attachment://418-a.png")
-                await ctx.send(embed=e, file=image_file)
-            else:
-                await ctx.send(embed=e)
-        else:
-            await ctx.send(embed=e)
+        await ctx.send(embed=e)
         
 @bot.command()
 async def all(ctx, vonal: str):
@@ -3269,17 +3326,7 @@ async def all(ctx, vonal: str):
         embeds.append(embed)
 
     for e in embeds:
-        # Check if this embed contains 418 vehicles (marked with 🚆)
-        if "🚆" in e.description:
-            image_path = "img/418-a.png"
-            if os.path.exists(image_path):
-                image_file = discord.File(image_path, filename="418-a.png")
-                e.set_thumbnail(url="attachment://418-a.png")
-                await ctx.send(embed=e, file=image_file)
-            else:
-                await ctx.send(embed=e)
-        else:
-            await ctx.send(embed=e)
+        await ctx.send(embed=e)
 
 # =======================
 # START
