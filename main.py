@@ -998,7 +998,7 @@ async def m41(ctx):
     """Kiírja az összes M41-et (418)"""
     all_vehicles = await fetch_mav_vehicles()  # dict {vehicleId: adatok}
 
-    # Szűrés csak uicCode 6-8 karakter "815"
+    # Szűrés csak uicCode 6-8 karakter "418"
     kiss_vehicles = [
         {"vehicleId": vid, **data}
         for vid, data in all_vehicles.items()
@@ -1014,9 +1014,13 @@ async def m41(ctx):
     # Rendezés pályaszám szerint (uicCode 6-11 karakter)
     kiss_vehicles.sort(key=lambda v: v["uicCode"][5:11] if len(v["uicCode"]) >= 11 else "000000")
 
-    MAX_CHARS = 4000
-    description = ""
+    MAX_FIELDS = 25
     embeds = []
+    current_embed = discord.Embed(
+        title="🚆 Aktív M41 mozdonyok",
+        color=0x00A0E3
+    )
+    field_count = 0
 
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
@@ -1034,39 +1038,36 @@ async def m41(ctx):
         delay_sec = v.get("nextStop", {}).get("arrivalDelay")
         delay_min = f"{int(delay_sec / 60)} perc" if delay_sec is not None else "—"
 
-        entry = (
-            f"**{payaszam}**\n"
+        # Field name with image emoji indicator
+        field_name = f"🚆 {payaszam}"
+        field_value = (
             f"UIC: {uic}\n"
             f"Vonatszám: {vonatszam}\n"
             f"Célállomás: {cel}\n"
             f"Következő állomás: {next_stop}\n"
             f"Sebesség: {speed} km/h\n"
-            f"Késés: {delay_min}\n\n"
+            f"Késés: {delay_min}"
         )
 
-        if len(description) + len(entry) > MAX_CHARS:
-            embed = discord.Embed(
-                title="🚆 Aktív M41 mozdonyok",
-                description=description,
+        if field_count >= MAX_FIELDS:
+            embeds.append(current_embed)
+            current_embed = discord.Embed(
+                title="🚆 Aktív M41 mozdonyok (folytatás)",
                 color=0x00A0E3
             )
-            embeds.append(embed)
-            description = entry
-        else:
-            description += entry
+            field_count = 0
 
-    if description:
-        embed = discord.Embed(
-            title="🚆 Aktív M41 mozdonyok",
-            description=description,
-            color=0x00A0E3
-        )
-        embeds.append(embed)
+        current_embed.add_field(name=field_name, value=field_value, inline=False)
+        field_count += 1
 
-    for e in embeds:
-        # Add thumbnail image for 418 vehicles
-        image_path = "img/418-a.png"
-        if os.path.exists(image_path):
+    if field_count > 0:
+        embeds.append(current_embed)
+
+    # Send embeds with image
+    image_path = "img/418-a.png"
+    for idx, e in enumerate(embeds):
+        if os.path.exists(image_path) and idx == 0:
+            # Only attach image to first embed
             image_file = discord.File(image_path, filename="418-a.png")
             e.set_thumbnail(url="attachment://418-a.png")
             await ctx.send(embed=e, file=image_file)
