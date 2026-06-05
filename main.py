@@ -1117,12 +1117,13 @@ async def m41(ctx):
             "next_stop": next_stop,
             "speed": speed,
             "delay_min": delay_min,
-            "show_icon": uic[5:8] == "418"
+            "show_icon": uic[5:8] == "418",
+            "file": image_file
         })
 
     image_bytes = generate_m41_status_image(entries)
     image_file = discord.File(image_bytes, filename="m41_status.png")
-    await ctx.send(f"🚆 Aktív M41 mozdonyok ({len(entries)} jármű)", file=image_file)
+    await ctx.send(f"🚆 Aktív M41 mozdonyok ({len(entries)} jármű)")
         
 @bot.command()
 async def bvh(ctx):
