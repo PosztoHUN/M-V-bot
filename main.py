@@ -226,6 +226,92 @@ def fetch_txt_raw() -> str:
 
 
 # =======================
+# RETRO SZÁMOK MAPPING
+# =======================
+
+RETRO_NUMBERS = {
+    "408 113": "M40.113",
+    "408 114": "M40.114",
+    "408 203": "M40 203",
+    "408 209": "M40 209",
+    "408 219": "M40.219",
+    "408 302": "M40 302",
+    "418 103": "M41.2103",
+    "418 112": "M41.2112",
+    "418 143": "M41.2143",
+    "431 001": "V43.1001",
+    "431 008": "V43.1008",
+    "628 001": "M62-001",
+    "628 116": "M62 116",
+    "628 127": "M62-127",
+    "628 187": "M62 187",
+    "628 194": "M62-194",
+    "628 265": "M62 265",
+    "630 004": "V63 004",
+    "630 056": "V63 056",
+    "8005 149": "BDdf 149",
+}
+
+def apply_retro_mapping(uic_code: str) -> str:
+    """
+    Applies retro number mapping to UIC code.
+    
+    Example:
+    - Input: "32400408 113-1" -> Output: "M40.113"
+    - Input: "32400418 103-1" -> Output: "M41.2103"
+    
+    If no mapping exists, returns the original formatted string.
+    """
+    if not uic_code or len(uic_code) < 11:
+        return uic_code
+    
+    # Extract the 3-digit code + 3-digit number from UIC
+    code_part = uic_code[5:8]      # positions 5-7
+    num_part = uic_code[8:11]      # positions 8-10
+    search_key = f"{code_part} {num_part}"
+    
+    # Check if this combination exists in our mapping
+    if search_key in RETRO_NUMBERS:
+        return RETRO_NUMBERS[search_key]
+    
+    # Otherwise return the original format
+    return f"{code_part} {num_part}" + ("-" + uic_code[11] if len(uic_code) > 11 else "")
+
+def get_retro_image_path(payaszam: str) -> str:
+    """
+    Returns the image file path for retro numbers.
+    Checks for specific numbers first, then falls back to general type image.
+    
+    Example: "418 112" -> "img/418-112-a.png"
+    Example: "418 999" -> "img/418-a.png"
+    """
+    import os
+    
+    if not payaszam:
+        return None
+    
+    # Map of retro types to their general image
+    retro_types = {
+        "418": "418-a.png",
+        "M41": "418-a.png",
+    }
+    
+    # Try to find specific image for this number
+    for prefix, general_image in retro_types.items():
+        if payaszam.startswith(prefix):
+            # Try specific number image first (e.g., 418-112-a.png)
+            specific = payaszam.replace(" ", "-") + "-a.png"
+            specific_path = os.path.join("img", specific)
+            if os.path.exists(specific_path):
+                return specific_path
+            
+            # Fall back to general type image
+            return os.path.join("img", general_image)
+    
+    return None
+
+
+# =======================
 # SEGÉDFÜGGVÉNYEK
 # =======================
 def chunk_embeds(title_base, entries, color=0x003200, max_fields=20):
@@ -414,9 +500,17 @@ async def vezerlokocsik(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[4:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "8005 149" in payaszam:
-                payaszam = "BDdf 149"
+            # Special handling for control cars (8005/8055) - they use different extraction
+            if uic[4:8] in ("8005", "8055"):
+                code_part = uic[4:8]
+                num_part = uic[8:11]
+                search_key = f"{code_part} {num_part}"
+                if search_key in RETRO_NUMBERS:
+                    payaszam = RETRO_NUMBERS[search_key]
+                else:
+                    payaszam = f"{code_part} {num_part}" + ("-" + uic[11] if len(uic) > 11 else "")
+            else:
+                payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -489,7 +583,7 @@ async def bz(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -562,7 +656,7 @@ async def vectron(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -635,7 +729,7 @@ async def uzsgyi(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -708,7 +802,7 @@ async def bdv(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -781,7 +875,7 @@ async def flirt(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -854,17 +948,7 @@ async def m40(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "408 113" in payaszam:
-                payaszam = "M40.113"
-            if "408 114" in payaszam:
-                payaszam = "M40.114"
-            if "408 203" in payaszam:
-                payaszam = "M40 203"
-            if "408 204" in payaszam:
-                payaszam = "M40 209"
-            if "408 219" in payaszam:
-                payaszam = "M40.219"
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -937,13 +1021,7 @@ async def m41(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "418 103" in payaszam:
-                payaszam = "M41.2103"
-            if "418 112" in payaszam:
-                payaszam = "M41.2112"
-            if "418 143" in payaszam:
-                payaszam = "M41.2143"
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -986,7 +1064,14 @@ async def m41(ctx):
         embeds.append(embed)
 
     for e in embeds:
-        await ctx.send(embed=e)
+        # Add thumbnail image for 418 vehicles
+        image_path = "img/418-a.png"
+        if os.path.exists(image_path):
+            image_file = discord.File(image_path, filename="418-a.png")
+            e.set_thumbnail(url="attachment://418-a.png")
+            await ctx.send(embed=e, file=image_file)
+        else:
+            await ctx.send(embed=e)
         
 @bot.command()
 async def bvh(ctx):
@@ -1016,7 +1101,7 @@ async def bvh(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1089,11 +1174,7 @@ async def v43(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "431 001" in payaszam:
-                payaszam = "V43.1001"
-            if "431 008" in payaszam:
-                payaszam = "V43.1008"
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1166,7 +1247,7 @@ async def talent(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1239,7 +1320,7 @@ async def desiro(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1312,7 +1393,7 @@ async def bv(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1385,7 +1466,7 @@ async def m43(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1458,7 +1539,7 @@ async def m44(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1531,7 +1612,7 @@ async def jenbacher(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1604,7 +1685,7 @@ async def v46(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1679,7 +1760,7 @@ async def taurus(ctx):
         uic = v.get("uicCode", "")
         # Pályaszám formázása: 6-11 karakter, 8 után szóköz
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + ("-" + uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1827,7 +1908,7 @@ async def m47(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1900,7 +1981,7 @@ async def traxx(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -1973,7 +2054,7 @@ async def astride(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -2046,19 +2127,7 @@ async def m62(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "628 001" in payaszam:
-                payaszam = "M62-001"
-            if "628 116" in payaszam:
-                payaszam = "M62 116"
-            if "628 127" in payaszam:
-                payaszam = "M62-127"
-            if "628 187" in payaszam:
-                payaszam = "M62 187"
-            if "628 194" in payaszam:
-                payaszam = "M62-194"
-            if "628 265" in payaszam:
-                payaszam = "M62 265"
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -2131,11 +2200,7 @@ async def v63(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
-            if "630 004" in payaszam:
-                payaszam = "V63 004"
-            if "630 056" in payaszam:
-                payaszam = "V63 056"
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -2208,7 +2273,7 @@ async def kiss(ctx):
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
-            payaszam = uic[5:8] + " " + uic[8:11] + "-" + (uic[11:12] if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -3075,7 +3140,7 @@ async def vonat(ctx, vonatszam_keres: str):
         uic = str(v.get("uicCode") or "Ismeretlen")
         # Pályaszám kiírás
         if len(uic) >= 11:
-            payaszam = f"{uic[5:8]} {uic[8:11]}" + (f"-{uic[11]}" if len(uic) > 11 else "")
+            payaszam = apply_retro_mapping(uic)
         else:
             payaszam = uic
 
@@ -3115,7 +3180,17 @@ async def vonat(ctx, vonatszam_keres: str):
         embeds.append(embed)
 
     for e in embeds:
-        await ctx.send(embed=e)
+        # Check if this embed contains 418 vehicles
+        if "418" in e.description or "M41" in e.description:
+            image_path = "img/418-a.png"
+            if os.path.exists(image_path):
+                image_file = discord.File(image_path, filename="418-a.png")
+                e.set_thumbnail(url="attachment://418-a.png")
+                await ctx.send(embed=e, file=image_file)
+            else:
+                await ctx.send(embed=e)
+        else:
+            await ctx.send(embed=e)
         
 @bot.command()
 async def all(ctx, vonal: str):
@@ -3153,12 +3228,18 @@ async def all(ctx, vonal: str):
         cel = v.get("tripHeadsign") or "Ismeretlen"
         next_stop = v.get("nextStop", {}).get("stop", {}).get("name", "Ismeretlen")
         speed = v.get("speed", 0.0)
+        
+        # Check UIC code for retro number classification
+        uic = str(v.get("uicCode") or "")
+        retro_prefix = ""
+        if len(uic) >= 8 and uic[5:8] == "418":
+            retro_prefix = " 🚆"
 
         delay_sec = v.get("nextStop", {}).get("arrivalDelay")
         delay_min = f"{int(delay_sec / 60)} perc" if delay_sec is not None else "—"
 
         entry = (
-            f"**{reg}**\n"
+            f"**{reg}{retro_prefix}**\n"
             f"Típus: {typus}\n"
             f"Vonal: {trip}\n"
             f"Célállomás: {cel}\n"
@@ -3187,7 +3268,17 @@ async def all(ctx, vonal: str):
         embeds.append(embed)
 
     for e in embeds:
-        await ctx.send(embed=e)
+        # Check if this embed contains 418 vehicles (marked with 🚆)
+        if "🚆" in e.description:
+            image_path = "img/418-a.png"
+            if os.path.exists(image_path):
+                image_file = discord.File(image_path, filename="418-a.png")
+                e.set_thumbnail(url="attachment://418-a.png")
+                await ctx.send(embed=e, file=image_file)
+            else:
+                await ctx.send(embed=e)
+        else:
+            await ctx.send(embed=e)
 
 # =======================
 # START
