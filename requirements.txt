@@ -4,3 +4,4 @@ python-dotenv
 supabase==2.3.3
 httpx==0.24.1
 gtfs-realtime-bindings
+pillow
