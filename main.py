@@ -1092,8 +1092,18 @@ async def m41(ctx):
     # Rendezés pályaszám szerint (uicCode 6-11 karakter)
     kiss_vehicles.sort(key=lambda v: v["uicCode"][5:11] if len(v["uicCode"]) >= 11 else "000000")
 
-    # Create a single rendered image with inline icons next to each number.
-    entries = []
+    icon_path = os.path.join("img", "418-a.png")
+    icon_file = None
+    if os.path.exists(icon_path):
+        try:
+            icon_file = discord.File(icon_path, filename="418-a.png")
+        except Exception:
+            icon_file = None
+
+    MAX_CHARS = 4000
+    description = ""
+    embeds = []
+
     for v in kiss_vehicles:
         uic = v.get("uicCode", "")
         if len(uic) >= 11:
@@ -1109,20 +1119,46 @@ async def m41(ctx):
         delay_sec = v.get("nextStop", {}).get("arrivalDelay")
         delay_min = f"{int(delay_sec / 60)} perc" if delay_sec is not None else "—"
 
-        entries.append({
-            "payaszam": payaszam,
-            "uic": uic,
-            "vonatszam": vonatszam,
-            "cel": cel,
-            "next_stop": next_stop,
-            "speed": speed,
-            "delay_min": delay_min,
-            "show_icon": uic[5:8] == "418"
-        })
+        entry = (
+            f"**{payaszam}**\n"
+            f"UIC: {uic}\n"
+            f"Vonatszám: {vonatszam}\n"
+            f"Célállomás: {cel}\n"
+            f"Következő állomás: {next_stop}\n"
+            f"Sebesség: {speed} km/h\n"
+            f"Késés: {delay_min}\n\n"
+        )
 
-    image_bytes = generate_m41_status_image(entries)
-    image_file = discord.File(image_bytes, filename="m41_status.png")
-    await ctx.send(f"🚆 Aktív M41 mozdonyok ({len(entries)} jármű)", file=image_file)
+        if len(description) + len(entry) > MAX_CHARS:
+            embed = discord.Embed(
+                title="🚆 Aktív M41 mozdonyok",
+                description=description,
+                color=0x00A0E3
+            )
+            if icon_file is not None:
+                embed.set_thumbnail(url="attachment://418-a.png")
+            embeds.append(embed)
+            description = entry
+        else:
+            description += entry
+
+    if description:
+        embed = discord.Embed(
+            title="🚆 Aktív M41 mozdonyok",
+            description=description,
+            color=0x00A0E3
+        )
+        if icon_file is not None:
+            embed.set_thumbnail(url="attachment://418-a.png")
+        embeds.append(embed)
+
+    if icon_file is not None and embeds:
+        await ctx.send(embed=embeds[0], file=icon_file)
+        for e in embeds[1:]:
+            await ctx.send(embed=e)
+    else:
+        for e in embeds:
+            await ctx.send(embed=e)
         
 @bot.command()
 async def bvh(ctx):
