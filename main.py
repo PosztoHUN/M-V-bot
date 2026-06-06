@@ -1131,12 +1131,13 @@ async def m41(ctx):
 
         if len(description) + len(entry) > MAX_CHARS:
             embed = discord.Embed(
-                title="🚆 Aktív M41 mozdonyok",
                 description=description,
                 color=0x00A0E3
             )
             if icon_file is not None:
-                embed.set_thumbnail(url="attachment://418-a.png")
+                embed.set_author(name="Aktív M41 mozdonyok", icon_url="attachment://418-a.png")
+            else:
+                embed.title = "Aktív M41 mozdonyok"
             embeds.append(embed)
             description = entry
         else:
@@ -1144,12 +1145,13 @@ async def m41(ctx):
 
     if description:
         embed = discord.Embed(
-            title="🚆 Aktív M41 mozdonyok",
             description=description,
             color=0x00A0E3
         )
         if icon_file is not None:
-            embed.set_thumbnail(url="attachment://418-a.png")
+            embed.set_author(name="Aktív M41 mozdonyok", icon_url="attachment://418-a.png")
+        else:
+            embed.title = "Aktív M41 mozdonyok"
         embeds.append(embed)
 
     if icon_file is not None and embeds:
